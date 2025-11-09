@@ -1,0 +1,28 @@
+# Bỏ qua node_modules - thư mục chứa các package cài bằng npm
+node_modules/
+
+# Bỏ qua file log
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Bỏ qua file môi trường
+.env
+.env.example
+# Bỏ qua hệ thống cache
+.cache/
+dist/
+build/
+
+# Bỏ qua file hệ điều hành tạo
+.DS_Store
+Thumbs.db
+
+# Bỏ qua file tạm thời từ editor
+*.swp
+*.swo
+*.tmp
+
+# Bỏ qua thư mục IDE/editor
+.vscode/
+.idea/
