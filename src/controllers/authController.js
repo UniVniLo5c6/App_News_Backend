@@ -12,11 +12,14 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { OAuth2Client } = require('google-auth-library');
-
+const nodemailer = require('nodemailer');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 
+function generateOTP() {
+  return crypto.randomInt(100000, 999999).toString();  
+}
 /**
  * Register a new user.
  *
@@ -27,16 +30,69 @@ const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 exports.register = async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) return res.status(400).json({ message: 'Missing fields' });
+
   try {
     const existing = await User.findOne({ where: { email } });
     if (existing) return res.status(409).json({ message: 'Email already in use' });
+
     const passwordHash = await bcrypt.hash(password, 10);
-    // generate email verification token
-    const verifyToken = crypto.randomBytes(20).toString('hex');
-    const verifyExpiry = new Date(Date.now() + 24 * 3600 * 1000); // 24h
-    const user = await User.create({ name, email, passwordHash, emailVerifyToken: verifyToken, emailVerifyExpiry: verifyExpiry, emailVerified: false });
-    // In dev we return verifyToken. In production you'd email it.
-    return res.status(201).json({ id: user.id, name: user.name, email: user.email, verifyToken });
+    const otp = generateOTP();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+
+    const user = await User.create({
+      name,
+      email,
+      passwordHash,
+      emailVerifyToken: otp,
+      emailVerifyExpiry: expiry,
+      emailVerified: false
+    });
+
+    // Send OTP
+    sendMail(
+      email,
+      "Your email verification code",
+      `<p>Your verification code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
+    );
+
+    return res.status(201).json({
+      message: "User created. Check your email for the OTP."
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+/**
+ * Verify Email
+ * 
+ * Body: {email, otp}
+ * Verify the email that used to be a email when register or reset password
+ * 
+ *  Returns: 200 JSON { message: "Email verified successfully" }
+ */
+exports.verifyEmail = async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ message: 'Missing fields' });
+
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(400).json({ message: 'User not found' });
+
+    if (user.emailVerifyToken !== otp)
+      return res.status(400).json({ message: 'Invalid OTP' });
+
+    if (!user.emailVerifyExpiry || user.emailVerifyExpiry < new Date())
+      return res.status(400).json({ message: 'OTP expired' });
+
+    user.emailVerified = true;
+    user.emailVerifyToken = null;
+    user.emailVerifyExpiry = null;
+    await user.save();
+
+    return res.json({ message: "Email verified successfully" });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -137,21 +193,33 @@ exports.refreshToken = async (req, res) => {
 exports.requestPasswordReset = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Missing email' });
+
   try {
     const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(200).json({ message: 'If the email exists, a reset token has been issued' });
-    const token = crypto.randomBytes(20).toString('hex');
-    const expiry = new Date(Date.now() + 3600 * 1000); // 1 hour
-    user.resetToken = token;
+    if (!user) return res.status(200).json({ message: "If email exists, OTP has been sent" });
+
+    const otp = generateOTP();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+
+    user.resetToken = otp;
     user.resetTokenExpiry = expiry;
     await user.save();
-    // In production you'd email the token. Here we return it for testing/dev.
-    return res.json({ message: 'Password reset token generated (dev only)', token });
+
+    // Send OTP reset
+    sendMail(
+      email,
+      "Password Reset Code",
+      `<p>Your password reset code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
+    );
+
+    return res.json({ message: "If email exists, OTP has been sent" });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /**
  * Reset password using a reset token.
@@ -161,22 +229,40 @@ exports.requestPasswordReset = async (req, res) => {
  * Returns: 200 JSON { message }
  */
 exports.resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) return res.status(400).json({ message: 'Missing fields' });
+  const { otp, newPassword, email } = req.body;
+  if (!email || !otp || !newPassword)
+    return res.status(400).json({ message: 'Missing fields' });
+
   try {
-    const user = await User.findOne({ where: { resetToken: token } });
-    if (!user) return res.status(400).json({ message: 'Invalid token' });
-    if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) return res.status(400).json({ message: 'Token expired' });
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(400).json({ message: 'Invalid email' });
+
+    if (user.resetToken !== otp)
+      return res.status(400).json({ message: 'Invalid OTP' });
+
+    if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date())
+      return res.status(400).json({ message: 'OTP expired' });
+
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.resetToken = null;
     user.resetTokenExpiry = null;
     await user.save();
+
+    // Email notification.
+    sendMail(
+      user.email,
+      "Password Changed",
+      `<p>Your password has been updated successfully.</p>`
+    );
+
     return res.json({ message: 'Password reset successful' });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /**
  * Get current authenticated user's public profile.
