@@ -47,9 +47,8 @@ exports.register = async (req, res) => {
       emailVerifyExpiry: expiry,
       emailVerified: false
     });
-
     // Send OTP
-    sendMail(
+    nodemailer.sendMail(
       email,
       "Your email verification code",
       `<p>Your verification code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
@@ -206,7 +205,7 @@ exports.requestPasswordReset = async (req, res) => {
     await user.save();
 
     // Send OTP reset
-    sendMail(
+    nodemailer.sendMail(
       email,
       "Password Reset Code",
       `<p>Your password reset code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
@@ -249,7 +248,7 @@ exports.resetPassword = async (req, res) => {
     await user.save();
 
     // Email notification.
-    sendMail(
+    nodemailer.sendMail(
       user.email,
       "Password Changed",
       `<p>Your password has been updated successfully.</p>`
