@@ -14,9 +14,8 @@ const User = require('../models/user');
 const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require('nodemailer');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
-
+const email_to_User= require('../utils/email')
 function generateOTP() {
   return crypto.randomInt(100000, 999999).toString();  
 }
@@ -48,11 +47,12 @@ exports.register = async (req, res) => {
       emailVerified: false
     });
     // Send OTP
-    nodemailer.sendMail(
-      email,
-      "Your email verification code",
-      `<p>Your verification code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
-    );
+    email_to_User.sendMail({
+  to: email,
+  subject: "Your email verification code",
+  html: `<p>Your verification code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
+    });
+
 
     return res.status(201).json({
       message: "User created. Check your email for the OTP."
@@ -205,11 +205,12 @@ exports.requestPasswordReset = async (req, res) => {
     await user.save();
 
     // Send OTP reset
-    nodemailer.sendMail(
-      email,
-      "Password Reset Code",
-      `<p>Your password reset code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
-    );
+   email_to_User.sendMail({
+  to: email,
+  subject: "Password Reset Code",
+  html: `<p>Your password reset code is:</p><h2>${otp}</h2><p>Expires in 10 minutes.</p>`
+    });
+
 
     return res.json({ message: "If email exists, OTP has been sent" });
 
@@ -248,11 +249,12 @@ exports.resetPassword = async (req, res) => {
     await user.save();
 
     // Email notification.
-    nodemailer.sendMail(
-      user.email,
-      "Password Changed",
-      `<p>Your password has been updated successfully.</p>`
-    );
+    email_to_User.sendMail({
+  to: user.email,
+  subject: "Password Changed",
+  html: `<p>Your password has been updated successfully.</p>`
+    });
+
 
     return res.json({ message: 'Password reset successful' });
 
@@ -334,7 +336,6 @@ exports.oauthGoogle = async (req, res) => {
     return res.status(401).json({ message: 'Invalid idToken', error: err.message });
   }
 };
-
 /**
  * Verify user's email using a token.
  *
