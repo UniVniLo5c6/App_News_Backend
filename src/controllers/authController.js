@@ -343,17 +343,3 @@ exports.oauthGoogle = async (req, res) => {
  * Marks the user's emailVerified flag if token is valid and not expired.
  * Returns: 200 JSON { message }
  */
-exports.verifyEmail = async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.status(400).json({ message: 'token required' });
-  try {
-    const user = await User.findOne({ where: { emailVerifyToken: token } });
-    if (!user) return res.status(400).json({ message: 'Invalid token' });
-    if (!user.emailVerifyExpiry || user.emailVerifyExpiry < new Date()) return res.status(400).json({ message: 'Token expired' });
-    user.emailVerified = true;
-    user.emailVerifyToken = null;
-    user.emailVerifyExpiry = null;
-    await user.save();
-    return res.json({ message: 'Email verified' });
-  } catch (err) { console.error(err); return res.status(500).json({ message: 'Server error' }); }
-};
