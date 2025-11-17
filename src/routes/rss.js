@@ -6,7 +6,7 @@ const adminMw = require('../middleware/adminMiddleware');
 const { validate, rssSourceValidators } = require('../middleware/validators');
 
 // Public endpoints
-router.get('/', rssCtrl.listItems);
+router.get('/items', rssCtrl.listItems);
 router.get('/trending', rssCtrl.trending);
 router.get('/search', rssCtrl.search);
 router.get('/summary/:id', rssCtrl.summary);
