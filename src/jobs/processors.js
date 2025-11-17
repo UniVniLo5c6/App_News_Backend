@@ -10,10 +10,15 @@
 const axios = require('axios');
 const RssSource = require('../models/rssSource');
 const RssItem = require('../models/rssItem');
-
+require('dotenv').config();
 /**
  * Process JSON sync job
  */
+const GNEWS_API_KEY = process.env.JSON_API_KEY;
+const buildGNewsUrl = (sourceUrl) => {
+  const siteName = encodeURIComponent(new URL(sourceUrl).hostname);
+  return `https://gnews.io/api/v4/top-headlines?q=${siteName}&country=vn&max=10&apikey=${GNEWS_API_KEY}`;
+};
 const handleJsonSync = async (job) => {
   const { sourceId, url } = job.data;
 
@@ -21,7 +26,7 @@ const handleJsonSync = async (job) => {
     await job.progress(10);
 
     // Fetch JSON data
-    const response = await axios.get(url);
+    const response = await axios.get(buildGNewsUrl(url));
     const data = response.data;
 
     await job.progress(30);
