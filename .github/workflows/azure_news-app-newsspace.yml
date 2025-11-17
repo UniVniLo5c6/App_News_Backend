@@ -8,6 +8,9 @@ on:
     branches:
       - azure
   workflow_dispatch:
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -62,4 +65,5 @@ jobs:
           app-name: 'news-app-newsspace'
           slot-name: 'Production'
           package: .
+
           
