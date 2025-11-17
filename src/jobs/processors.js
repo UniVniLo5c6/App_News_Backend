@@ -17,7 +17,7 @@ require('dotenv').config();
 const GNEWS_API_KEY = process.env.JSON_API_KEY;
 const buildGNewsUrl = (sourceUrl) => {
   const siteName = encodeURIComponent(new URL(sourceUrl).hostname);
-  return `https://gnews.io/api/v4/top-headlines?q=${siteName}&country=vn&max=10&apikey=${GNEWS_API_KEY}`;
+  return `https://gnews.io/api/v4/top-headlines?q=Google&country=vn&max=10&apikey=${GNEWS_API_KEY}`;
 };
 const handleJsonSync = async (job) => {
   const { sourceId, url } = job.data;
