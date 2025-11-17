@@ -1,52 +1,34 @@
 /**
- * queues.js
- * 
- * Purpose: Configure and export Bull queues for background job processing.
- * Each queue handles a specific type of job (RSS sync, notifications, etc).
+ * Queue Manager
+ *
+ * Responsibilities:
+ * - Create and configure Bull queues
+ * - Define global retry & cleanup behavior
  */
 
 const Queue = require('bull');
-const Redis = require('ioredis');
 
-// Redis connection config (with fallback to localhost)
-const redisConfig = {
+// Redis connection configuration
+const redisOptions = {
   port: process.env.REDIS_PORT || 6379,
   host: process.env.REDIS_HOST || 'localhost',
-  password: process.env.REDIS_PASSWORD,
+  password: process.env.REDIS_PASSWORD || undefined
 };
 
-// Create queues with retry strategy
+// Default job retry & cleanup rules
 const defaultJobOptions = {
   attempts: 5,
-  backoff: {
-    type: 'exponential',
-    delay: 2000, // Initial delay in ms
-  },
-  removeOnComplete: 100, // Keep last 100 completed jobs
-  removeOnFail: 200,    // Keep last 200 failed jobs
+  backoff: { type: 'exponential', delay: 2000 },
+  removeOnComplete: 100,
+  removeOnFail: 200
 };
 
-// RSS sync queue - for fetching and storing RSS items
-const rssSyncQueue = new Queue('rss-sync', {
-  redis: redisConfig,
-  defaultJobOptions,
+// Queue for JSON sync jobs
+const jsonSyncQueue = new Queue('json-sync-queue', {
+  redis: redisOptions,
+  defaultJobOptions
 });
 
-// Notification queue - for sending emails, push notifications
-const notificationQueue = new Queue('notifications', {
-  redis: redisConfig,
-  defaultJobOptions,
-});
-
-// Blog processing queue - for heavy operations like generating summaries
-const blogProcessQueue = new Queue('blog-processing', {
-  redis: redisConfig,
-  defaultJobOptions,
-});
-
-// Export queues
 module.exports = {
-  rssSyncQueue,
-  notificationQueue,
-  blogProcessQueue,
+  jsonSyncQueue
 };

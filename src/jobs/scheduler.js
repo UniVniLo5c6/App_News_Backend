@@ -1,54 +1,65 @@
 /**
- * scheduler.js
- * 
- * Purpose: Schedule recurring jobs using cron patterns.
- * Sets up periodic tasks like RSS sync and cleanup jobs.
+ * Cron Scheduler
+ *
+ * Responsibilities:
+ * - Execute periodic jobs automatically
+ * - Sync all sources on schedule
+ * - Clean old jobs
  */
 
 const { CronJob } = require('cron');
-const { rssSyncQueue } = require('./queues');
+const { jsonSyncQueue } = require('./queues');
 const RssSource = require('../models/rssSource');
 
-// Schedule RSS sync for all active sources every hour
-const scheduleRssSync = () => {
-  new CronJob('0 * * * *', async () => {
-    try {
-      // Get all active RSS sources
-      const sources = await RssSource.findAll({
-        where: { active: true }
-      });
-      
-      // Add sync job for each source
-      for (const source of sources) {
-        await rssSyncQueue.add('sync-source', {
-          sourceId: source.id,
-          url: source.url,
-        }, {
-          // Don't schedule if already pending
-          jobId: `sync-source-${source.id}`,
-          removeOnComplete: true
-        });
+/**
+ * Schedule hourly sync for all active JSON sources
+ */
+const scheduleJsonSync = () => {
+  new CronJob(
+    '0 * * * *',
+    async () => {
+      try {
+        const sources = await RssSource.findAll({ where: { active: true } });
+
+        for (const source of sources) {
+          await jsonSyncQueue.add(
+            'json-sync-task',
+            { sourceId: source.id, url: source.url },
+            {
+              jobId: `json-sync-${source.id}`,
+              removeOnComplete: true
+            }
+          );
+        }
+      } catch (error) {
+        console.error('Failed to schedule JSON sync:', error);
       }
-    } catch (err) {
-      console.error('Failed to schedule RSS sync jobs:', err);
-    }
-  }, null, true);
+    },
+    null,
+    true
+  );
 };
 
-// Clean up old completed jobs daily at 2 AM
+/**
+ * Clean old jobs daily
+ */
 const scheduleQueueCleanup = () => {
-  new CronJob('0 2 * * *', async () => {
-    try {
-      await rssSyncQueue.clean(24 * 3600 * 1000, 'completed');
-      await rssSyncQueue.clean(7 * 24 * 3600 * 1000, 'failed');
-    } catch (err) {
-      console.error('Failed to clean job queues:', err);
-    }
-  }, null, true);
+  new CronJob(
+    '0 2 * * *',
+    async () => {
+      try {
+        await jsonSyncQueue.clean(24 * 3600 * 1000, 'completed'); // completed jobs older than 24h
+        await jsonSyncQueue.clean(7 * 24 * 3600 * 1000, 'failed'); // failed jobs older than 7 days
+      } catch (error) {
+        console.error('Failed to clean queue:', error);
+      }
+    },
+    null,
+    true
+  );
 };
 
-// Export scheduler functions
 module.exports = {
-  scheduleRssSync,
+  scheduleJsonSync,
   scheduleQueueCleanup
 };

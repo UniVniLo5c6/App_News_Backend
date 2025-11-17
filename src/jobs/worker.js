@@ -1,52 +1,38 @@
 /**
- * worker.js
- * 
- * Purpose: Worker process that handles background jobs.
- * Run this separately from the web server to process jobs.
+ * Worker Process
+ *
+ * Responsibilities:
+ * - Consume and process jobs
+ * - Register scheduled tasks
+ * - Handle queue errors
  */
 
 require('dotenv').config();
-const {
-  rssSyncQueue,
-  notificationQueue,
-  blogProcessQueue
-} = require('./queues');
-const {
-  processRssSync,
-  processNotification,
-  processBlogTask
-} = require('./processors');
-const {
-  scheduleRssSync,
-  scheduleQueueCleanup
-} = require('./scheduler');
 
-// Process RSS sync jobs
-rssSyncQueue.process('sync-source', processRssSync);
+const { jsonSyncQueue } = require('./queues');
+const { handleJsonSync } = require('./processors');
+const { scheduleJsonSync, scheduleQueueCleanup } = require('./scheduler');
 
-// Process notification jobs
-notificationQueue.process('send', processNotification);
+// Register processors
+jsonSyncQueue.process('json-sync-task', handleJsonSync);
 
-// Process blog tasks
-blogProcessQueue.process('process', processBlogTask);
-
-// Schedule recurring jobs
-scheduleRssSync();
+// Start scheduled tasks
+scheduleJsonSync();
 scheduleQueueCleanup();
 
-// Error handling
-const handleQueueError = (queue) => {
+/**
+ * Generic queue error listener
+ */
+const attachQueueErrorHandlers = (queue) => {
   queue.on('error', (error) => {
-    console.error(`Queue ${queue.name} error:`, error);
+    console.error(`[Queue Error] ${queue.name}:`, error);
   });
-  
-  queue.on('failed', (job, err) => {
-    console.error(`Job ${job.id} in ${queue.name} failed:`, err);
+
+  queue.on('failed', (job, error) => {
+    console.error(`[Job Failed] ${queue.name} - Job ${job.id}:`, error);
   });
 };
 
-handleQueueError(rssSyncQueue);
-handleQueueError(notificationQueue);
-handleQueueError(blogProcessQueue);
+attachQueueErrorHandlers(jsonSyncQueue);
 
-console.log('Worker started processing jobs...');
+console.log('JSON Sync Worker is running...');
