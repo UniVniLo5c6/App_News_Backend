@@ -32,6 +32,13 @@ app.use('/api/settings', require('./routes/settings'));
 app.get('/', (req, res) => res.json({ message: 'News backend running' }));
 
 const PORT = process.env.PORT || 3000;
+// Start job scheduler
+const { scheduleJsonSync, scheduleQueueCleanup } = require('./jobs/scheduler');
+scheduleJsonSync();
+scheduleQueueCleanup();
+
+// Start job worker
+require('./jobs/worker');
 
 async function start() {
   try {
