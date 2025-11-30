@@ -16,7 +16,7 @@ const RssSource = require('../models/rssSource');
  */
 const scheduleJsonSync = () => {
   new CronJob(
-    '0 * * * *',
+    '*/10 * * * *',
     async () => {
       try {
         const sources = await RssSource.findAll({ where: { active: true } });
