@@ -15,18 +15,23 @@ require('dotenv').config();
  * Process JSON sync job
  */
 const GNEWS_API_KEY = process.env.JSON_API_KEY;
+const TOPICS = ['breaking-news', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
+
 const buildGNewsUrl = (sourceUrl) => {
   const siteName = encodeURIComponent(new URL(sourceUrl).hostname);
-  return `https://gnews.io/api/v4/top-headlines?q=Google&country=vn&max=10&apikey=${GNEWS_API_KEY}`;
+  const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
+  const url = `https://gnews.io/api/v4/top-headlines?topic=${randomTopic}&country=vn&max=20&apikey=${GNEWS_API_KEY}`;
+  return { url, topic: randomTopic };
 };
 const handleJsonSync = async (job) => {
-  const { sourceId, url } = job.data;
+  const { sourceId, url: sourceUrl } = job.data;
 
   try {
     await job.progress(10);
 
     // Fetch JSON data
-    const response = await axios.get(buildGNewsUrl(url));
+    const { url, topic } = buildGNewsUrl(sourceUrl);
+    const response = await axios.get(url);
     const data = response.data;
 
     await job.progress(30);
@@ -34,7 +39,7 @@ const handleJsonSync = async (job) => {
     const articles = data?.articles || [];
     const total = data?.totalArticles || articles.length;
 
-    console.log(`Syncing ${articles.length}/${total} articles from source ${sourceId}`);
+    console.log(`Syncing ${articles.length}/${total} articles from source ${sourceId} on topic ${topic}`);
 
     // Save each article
     for (let i = 0; i < articles.length; i++) {
@@ -53,7 +58,7 @@ const handleJsonSync = async (job) => {
           url: article.url,
           publishedAt: article.publishedAt ? new Date(article.publishedAt) : null,
           author: article.author || null,
-          topic: article.topic || null
+          topic: topic
         });
       }
 
