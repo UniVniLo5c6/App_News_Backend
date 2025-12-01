@@ -29,6 +29,13 @@ const jsonSyncQueue = new Queue('json-sync-queue', {
   defaultJobOptions
 });
 
+// Queue for source discovery jobs
+const sourceDiscoveryQueue = new Queue('source-discovery-queue', {
+  redis: redisOptions,
+  defaultJobOptions
+});
+
 module.exports = {
-  jsonSyncQueue
+  jsonSyncQueue,
+  sourceDiscoveryQueue
 };

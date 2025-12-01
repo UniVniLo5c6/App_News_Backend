@@ -16,7 +16,8 @@ const RssSource = sequelize.define('RssSource', {
   tag: { type: DataTypes.STRING, allowNull: true },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {
-  tableName: 'rss_sources'
+  tableName: 'rss_sources',
+  timestamps: true,
 });
 
 module.exports = RssSource;
