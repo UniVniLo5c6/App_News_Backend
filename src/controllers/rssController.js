@@ -8,7 +8,7 @@
 
 const RssSource = require('../models/rssSource');
 const RssItem = require('../models/rssItem');
-const { syncAllSources } = require('../services/rssService');
+const { syncAllSources, findRssFeedUrl } = require('../services/rssService');
 
 /**
  * List recent RSS items.
@@ -32,13 +32,35 @@ exports.getSources = async (req, res) => {
 };
 
 /**
- * Create a new RSS source.
+ * Create a new RSS source by discovering the feed URL from a website URL.
  *
- * Body: { name, url, tag, active }
- * Returns: 201 JSON created source.
+ * Body: { name, url, tag, active } where 'url' is the website's URL.
+ * Returns: 201 JSON created source, or 400 if RSS feed not found.
  */
 exports.createSource = async (req, res) => {
-  try { const { name, url, tag, active } = req.body; const s = await RssSource.create({ name, url, tag, active: !!active }); return res.status(201).json(s); } catch (err) { console.error(err); return res.status(500).json({ message: 'Server error' }); }
+  try {
+    const { name, url, tag, active } = req.body;
+
+    // Use the service to find the actual RSS feed URL from the provided site URL
+    const discoveredRssUrl = await findRssFeedUrl(url);
+
+    if (!discoveredRssUrl) {
+      return res.status(400).json({ message: 'Could not automatically discover RSS feed from the provided URL. Please provide the direct RSS feed URL.' });
+    }
+
+    // Create the source using the discovered URL
+    const s = await RssSource.create({
+      name,
+      url: discoveredRssUrl, // Use the discovered URL
+      tag,
+      active: !!active
+    });
+
+    return res.status(201).json(s);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
 };
 
 /**

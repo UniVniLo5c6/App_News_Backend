@@ -8,7 +8,7 @@
  */
 
 const { CronJob } = require('cron');
-const { jsonSyncQueue } = require('./queues');
+const { jsonSyncQueue, sourceDiscoveryQueue } = require('./queues');
 const RssSource = require('../models/rssSource');
 
 /**
@@ -59,7 +59,34 @@ const scheduleQueueCleanup = () => {
   );
 };
 
+/**
+ * Schedule daily discovery of new sources.
+ */
+const scheduleSourceDiscovery = () => {
+  new CronJob(
+    '*/10 * * * *', // Runs every day at 3:00 AM
+    async () => {
+      try {
+        console.log('Scheduling source discovery job...');
+        await sourceDiscoveryQueue.add(
+          'source-discovery-task',
+          {}, // No data needed for this job
+          {
+            jobId: 'source-discovery-daily', // A unique ID for this repeatable job
+            removeOnComplete: true
+          }
+        );
+      } catch (error) {
+        console.error('Failed to schedule source discovery job:', error);
+      }
+    },
+    null,
+    true
+  );
+};
+
 module.exports = {
   scheduleJsonSync,
-  scheduleQueueCleanup
+  scheduleQueueCleanup,
+  scheduleSourceDiscovery
 };
