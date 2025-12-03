@@ -35,7 +35,14 @@ const sourceDiscoveryQueue = new Queue('source-discovery-queue', {
   defaultJobOptions
 });
 
+// Queue for RSS fetching jobs
+const rssFetchingQueue = new Queue('rss-fetching-queue', {
+  redis: redisOptions,
+  defaultJobOptions
+});
+
 module.exports = {
   jsonSyncQueue,
-  sourceDiscoveryQueue
+  sourceDiscoveryQueue,
+  rssFetchingQueue
 };

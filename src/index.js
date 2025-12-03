@@ -33,9 +33,11 @@ app.get('/', (req, res) => res.json({ message: 'News backend running' }));
 
 const PORT = process.env.PORT || 3000;
 // Start job scheduler
-const { scheduleJsonSync, scheduleQueueCleanup } = require('./jobs/scheduler');
+const { scheduleJsonSync, scheduleQueueCleanup, scheduleRssSync, scheduleSourceDiscovery } = require('./jobs/scheduler');
 scheduleJsonSync();
 scheduleQueueCleanup();
+scheduleSourceDiscovery();
+scheduleRssSync();
 
 // Start job worker
 require('./jobs/worker');
