@@ -16,14 +16,7 @@ const User = require('../models/user');
  */
 exports.list = async (req, res) => {
   try {
-    const { rssitemid } = req.query;
-    const where = {};
-
-    if (rssitemid) {
-      where.rssItemId = rssitemid;
-    }
-
-    const articles = await Article.findAll({ where, include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
+    const articles = await Article.findAll({ include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
     return res.json(articles);
   } catch (err) {
     console.error(err);
