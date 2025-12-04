@@ -32,9 +32,10 @@ exports.list = async (req, res) => {
  */
 exports.get = async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const rssItemId = Number(req.params.id);
 
-    const article = await Article.findByPk(id, {
+    const article = await Article.findOne({
+      where: { rssItemId },
       include: [
         {
           model: User,
