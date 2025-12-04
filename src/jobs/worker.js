@@ -9,18 +9,21 @@
 
 require('dotenv').config();
 
-const { jsonSyncQueue, sourceDiscoveryQueue } = require('./queues');
-const { handleJsonSync, handleSourceDiscovery } = require('./processors');
-const { scheduleJsonSync, scheduleQueueCleanup, scheduleSourceDiscovery } = require('./scheduler');
+const { jsonSyncQueue, sourceDiscoveryQueue, rssFetchingQueue } = require('./queues');
+const { handleJsonSync, handleSourceDiscovery, handleRssSync } = require('./processors');
+const { scheduleJsonSync, scheduleQueueCleanup, scheduleSourceDiscovery, scheduleRssSync } = require('./scheduler');
 
 // Register processors
 jsonSyncQueue.process('json-sync-task', handleJsonSync);
 sourceDiscoveryQueue.process('source-discovery-task', handleSourceDiscovery);
+rssFetchingQueue.process('rss-sync-task', handleRssSync);
+
 
 // Start scheduled tasks
 scheduleJsonSync();
 scheduleQueueCleanup();
 scheduleSourceDiscovery();
+scheduleRssSync();
 
 /**
  * Generic queue error listener
@@ -37,6 +40,9 @@ const attachQueueErrorHandlers = (queue) => {
 
 attachQueueErrorHandlers(jsonSyncQueue);
 attachQueueErrorHandlers(sourceDiscoveryQueue);
+attachQueueErrorHandlers(rssFetchingQueue);
+
 
 console.log('JSON Sync Worker is running...');
 console.log('Source Discovery Worker is running...');
+console.log('RSS Sync Worker is running...');

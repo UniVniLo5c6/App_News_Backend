@@ -32,14 +32,28 @@ exports.list = async (req, res) => {
  */
 exports.get = async (req, res) => {
   try {
-    const article = await Article.findByPk(req.params.id, { include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }] });
+    const rssItemId = Number(req.params.id);
+
+    const article = await Article.findOne({
+      where: { rssItemId },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'email']
+        }
+      ]
+    });
+
     if (!article) return res.status(404).json({ message: 'Not found' });
+
     return res.json(article);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /**
  * Create a new article.

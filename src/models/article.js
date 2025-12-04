@@ -23,6 +23,10 @@ const Article = sequelize.define('Article', {
   content: {
     type: DataTypes.TEXT,
     allowNull: false,
+  },
+  rssItemId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
   }
 }, {
   tableName: 'articles'

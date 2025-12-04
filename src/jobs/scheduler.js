@@ -8,7 +8,7 @@
  */
 
 const { CronJob } = require('cron');
-const { jsonSyncQueue, sourceDiscoveryQueue } = require('./queues');
+const { jsonSyncQueue, sourceDiscoveryQueue, rssFetchingQueue } = require('./queues');
 const RssSource = require('../models/rssSource');
 
 /**
@@ -33,6 +33,35 @@ const scheduleJsonSync = () => {
         }
       } catch (error) {
         console.error('Failed to schedule JSON sync:', error);
+      }
+    },
+    null,
+    true
+  );
+};
+
+/**
+ * Schedule hourly sync for all active RSS sources
+ */
+const scheduleRssSync = () => {
+  new CronJob(
+    '*/10 * * * *',
+    async () => {
+      try {
+        const sources = await RssSource.findAll({ where: { active: true } });
+
+        for (const source of sources) {
+          await rssFetchingQueue.add(
+            'rss-sync-task',
+            { sourceId: source.id, url: source.url },
+            {
+              jobId: `rss-sync-${source.id}`,
+              removeOnComplete: true
+            }
+          );
+        }
+      } catch (error) {
+        console.error('Failed to schedule RSS sync:', error);
       }
     },
     null,
@@ -87,6 +116,7 @@ const scheduleSourceDiscovery = () => {
 
 module.exports = {
   scheduleJsonSync,
+  scheduleRssSync,
   scheduleQueueCleanup,
   scheduleSourceDiscovery
 };
