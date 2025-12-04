@@ -16,7 +16,14 @@ const User = require('../models/user');
  */
 exports.list = async (req, res) => {
   try {
-    const articles = await Article.findAll({ include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
+    const { rssitemid } = req.query;
+    const where = {};
+
+    if (rssitemid) {
+      where.rssItemId = rssitemid;
+    }
+
+    const articles = await Article.findAll({ where, include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
     return res.json(articles);
   } catch (err) {
     console.error(err);
@@ -32,14 +39,27 @@ exports.list = async (req, res) => {
  */
 exports.get = async (req, res) => {
   try {
-    const article = await Article.findByPk(req.params.id, { include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }] });
+    const id = Number(req.params.id);
+
+    const article = await Article.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'email']
+        }
+      ]
+    });
+
     if (!article) return res.status(404).json({ message: 'Not found' });
+
     return res.json(article);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /**
  * Create a new article.
