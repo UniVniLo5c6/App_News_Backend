@@ -16,7 +16,7 @@ const User = require('../models/user');
  */
 exports.list = async (req, res) => {
   try {
-    const articles = await Article.findAll({ include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
+    const articles = await Article.findAll({ include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'ASC']] });
     return res.json(articles);
   } catch (err) {
     console.error(err);
