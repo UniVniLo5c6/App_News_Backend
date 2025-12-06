@@ -229,15 +229,15 @@ exports.requestPasswordReset = async (req, res) => {
  * Returns: 200 JSON { message }
  */
 exports.resetPassword = async (req, res) => {
-  const { otp, newPassword, email } = req.body;
-  if (!email || !otp || !newPassword)
+  const { token, newPassword, email } = req.body;
+  if (!email || !token || !newPassword)
     return res.status(400).json({ message: 'Missing fields' });
 
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) return res.status(400).json({ message: 'Invalid email' });
 
-    if (user.resetToken !== otp)
+    if (user.resetToken !== token)
       return res.status(400).json({ message: 'Invalid OTP' });
 
     if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date())
