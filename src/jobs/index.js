@@ -6,7 +6,7 @@
  * - Export all job queues
  */
 
-const { jsonSyncQueue } = require('./queues');
+const { jsonSyncQueue, articleFetchQueue } = require('./queues');
 
 /**
  * Enqueue a JSON sync job for a specific source.
@@ -22,7 +22,22 @@ const enqueueJsonSync = async (sourceId, url) => {
   );
 };
 
+/**
+ * Enqueue a job to fetch article content from an RSS item.
+ */
+const enqueueArticleFetch = async (rssItemId) => {
+  return articleFetchQueue.add(
+    'fetch-article-task',
+    { rssItemId },
+    {
+      jobId: `article-fetch-${rssItemId}`,
+      removeOnComplete: true
+    }
+  );
+};
+
 module.exports = {
-  queues: { jsonSyncQueue },
-  enqueueJsonSync
+  queues: { jsonSyncQueue, articleFetchQueue },
+  enqueueJsonSync,
+  enqueueArticleFetch
 };

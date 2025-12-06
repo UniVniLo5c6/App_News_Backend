@@ -41,8 +41,15 @@ const rssFetchingQueue = new Queue('rss-fetching-queue', {
   defaultJobOptions
 });
 
+// Queue for article content fetching jobs
+const articleFetchQueue = new Queue('article-fetch-queue', {
+  redis: redisOptions,
+  defaultJobOptions
+});
+
 module.exports = {
   jsonSyncQueue,
   sourceDiscoveryQueue,
-  rssFetchingQueue
+  rssFetchingQueue,
+  articleFetchQueue
 };
