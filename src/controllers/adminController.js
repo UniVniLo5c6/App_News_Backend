@@ -85,3 +85,35 @@ exports.logs = async (req, res) => {
     return res.json(logs);
   } catch (err) { console.error(err); return res.status(500).json({ message: 'Server error' }); }
 };
+
+/**
+ * List latest articles for admin dashboard.
+ *
+ * Query: page (default 1), limit (default 20)
+ * Returns: 200 JSON { articles, total, page, limit }
+ */
+exports.listArticles = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Article.findAndCountAll({
+      include: [
+        { model: User, as: 'author', attributes: ['id', 'name', 'email'] },
+        { model: require('../models/rssItem'), as: 'rssItem', attributes: ['id', 'topic', 'url', 'summary'] }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    return res.json({
+      articles: rows,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit)
+    });
+  } catch (err) { console.error(err); return res.status(500).json({ message: 'Server error' }); }
+};
