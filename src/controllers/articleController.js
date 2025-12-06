@@ -7,6 +7,7 @@
 
 const Article = require('../models/article');
 const User = require('../models/user');
+const RssItem = require('../models/rssItem');
 
 /**
  * List all articles.
@@ -16,12 +17,36 @@ const User = require('../models/user');
  */
 exports.list = async (req, res) => {
   try {
-    const articles = await Article.findAll({ include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] });
+    // Support both `topic` and `category` query parameters for compatibility
+    const topic = req.query.topic || req.query.category;
+
+    const include = [
+      { model: User, as: 'author', attributes: ['id', 'name', 'email'] }
+    ];
+
+    // If topic is provided, join the RssItem and filter by topic
+    if (topic) {
+      include.push({ model: RssItem, as: 'rssItem', where: { topic }, attributes: ['id', 'topic', 'url', 'summary'] });
+    } else {
+      // include rssItem data for convenience (optional)
+      include.push({ model: RssItem, as: 'rssItem', attributes: ['id', 'topic'] });
+    }
+
+    const articles = await Article.findAll({ include, order: [['createdAt', 'DESC']] });
     return res.json(articles);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
+};
+
+/**
+ * List articles by topic (route helper).
+ * Uses the same logic as `list` but reads topic from `req.params.topic`.
+ */
+exports.listByTopic = async (req, res) => {
+  req.query.topic = req.params.topic;
+  return exports.list(req, res);
 };
 
 /**
@@ -32,18 +57,20 @@ exports.list = async (req, res) => {
  */
 exports.get = async (req, res) => {
   try {
-    const rssItemId = Number(req.params.id);
+    const idParam = req.params.id;
 
-    const article = await Article.findOne({
-      where: { rssItemId },
-      include: [
-        {
-          model: User,
-          as: 'author',
-          attributes: ['id', 'name', 'email']
-        }
-      ]
+    // Try to find by article primary key first
+    let article = await Article.findByPk(idParam, {
+      include: [ { model: User, as: 'author', attributes: ['id', 'name', 'email'] }, { model: RssItem, as: 'rssItem', attributes: ['id','topic','url','summary'] } ]
     });
+
+    // If not found by PK, allow fetching by rssItemId for compatibility
+    if (!article) {
+      const rssItemId = Number(idParam);
+      if (!Number.isNaN(rssItemId)) {
+        article = await Article.findOne({ where: { rssItemId }, include: [ { model: User, as: 'author', attributes: ['id','name','email'] }, { model: RssItem, as: 'rssItem', attributes: ['id','topic','url','summary'] } ] });
+      }
+    }
 
     if (!article) return res.status(404).json({ message: 'Not found' });
 
