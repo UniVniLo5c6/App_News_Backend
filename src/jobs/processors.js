@@ -7,6 +7,7 @@
  * - Save or update database records
  */
 
+const { articleFetchQueue } = require('./queues');
 const axios = require('axios');
 const Parser = require('rss-parser');
 const RssSource = require('../models/rssSource');
@@ -51,7 +52,7 @@ const handleJsonSync = async (job) => {
       });
 
       if (!existing) {
-        await RssItem.create({
+        const newRssItem = await RssItem.create({
           sourceId,
           title: article.title || '',
           content: article.content || '',
@@ -61,6 +62,8 @@ const handleJsonSync = async (job) => {
           author: article.author || null,
           topic: topic
         });
+        // Enqueue a job to fetch the article content
+        await articleFetchQueue.add({ rssItemId: newRssItem.id });
       }
 
       // Update job progress %
@@ -169,7 +172,7 @@ const handleRssSync = async (job) => {
             });
 
             if (!existing) {
-                await RssItem.create({
+                const newRssItem = await RssItem.create({
                     sourceId,
                     title: item.title || '',
                     content: item.content || item.contentSnippet || '',
@@ -179,6 +182,8 @@ const handleRssSync = async (job) => {
                     author: item.creator || item.author || null,
                     topic: randomTopic
                 });
+                // Enqueue a job to fetch the article content
+                await articleFetchQueue.add({ rssItemId: newRssItem.id });
             }
 
             // Update job progress %
@@ -233,7 +238,7 @@ const syncAllRssSources = async (job) => {
           const existingItem = await RssItem.findOne({ where: { url: item.link } });
 
           if (!existingItem) {
-            await RssItem.create({
+            const newRssItem = await RssItem.create({
               sourceId: source.id,
               title: item.title || 'No Title',
               content: item.content || item.contentSnippet || '',
@@ -242,6 +247,8 @@ const syncAllRssSources = async (job) => {
               publishedAt: item.isoDate ? new Date(item.isoDate) : new Date(),
               author: item.creator || item.author || 'Unknown',
             });
+            // Enqueue a job to fetch the article content
+            await articleFetchQueue.add({ rssItemId: newRssItem.id });
             newItemsInSource++;
           }
         }
@@ -273,10 +280,166 @@ const syncAllRssSources = async (job) => {
   }
 };
 
+const cheerio = require('cheerio');
+
+/**
+ * Extracts and cleans article HTML
+ */
+const extractAndFormatArticleHtml = (html) => {
+  const $ = cheerio.load(html);
+
+  // 0. Remove unwanted elements
+  $('script, style, noscript, iframe.ad, div.ad, .advertisement, .ads, comments, .promo').remove();
+
+  // 1. Find the best article container
+  const selectors = [
+    "article",
+    ".article-body",
+    ".article-content",
+    ".post-body",
+    ".post-content",
+    ".entry-content",
+    "#content",
+    ".content",
+    "#main",
+    ".main",
+    "[role='main']"
+  ];
+
+  let bestElement = null;
+  let maxTextLength = 0;
+
+  for (const selector of selectors) {
+    const elements = $(selector);
+    elements.each((i, el) => {
+      const currentTextLength = $(el).text().length;
+      if (currentTextLength > maxTextLength) {
+        maxTextLength = currentTextLength;
+        bestElement = el;
+      }
+    });
+  }
+
+  const context = bestElement ? $(bestElement) : $('body');
+
+  // 2. Build clean HTML
+  let resultHtml = "";
+  context.find('p, h2, h3, h4, img, figure, iframe, video').each((i, element) => {
+    const el = $(element);
+
+    // Skip nested figure content
+    if (el.parents('figure').length > 0 && !el.is('figure')) return;
+
+    const tagName = el.prop('tagName').toLowerCase();
+
+    if (tagName === 'p' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4') {
+      resultHtml += $.html(el) + '\n';
+
+    } else if (tagName === 'img') {
+      // Handle lazy-load images
+      el.attr('src', el.attr('src') || el.attr('data-src') || '');
+      if (!el.attr('alt')) el.attr('alt', '');
+      resultHtml += $.html(el) + '\n';
+
+    } else if (tagName === 'figure') {
+      const img = el.find('img');
+      if (img.length) {
+        const caption = el.find('figcaption').text().trim();
+        img.attr('src', img.attr('src') || img.attr('data-src') || '');
+        img.attr('alt', img.attr('alt') || caption || '');
+        resultHtml += $.html(img) + '\n';
+      }
+
+    } else if (tagName === 'iframe' || tagName === 'video') {
+      // Keep iframe/video as-is
+      resultHtml += $.html(el) + '\n';
+    }
+  });
+
+  return resultHtml.trim();
+};
+
+
+/**
+ * Fetch article content from an RSS item's URL and save it to the Article table.
+ * 
+ * This processor:
+ * - Retrieves the RSS item from the database.
+ * - Fetches the live content from the item's URL.
+ * - Parses and cleans the HTML to extract the core article body.
+ * - Creates or updates an Article record with the clean content.
+ */
+const handleArticleFetch = async (job) => {
+  const { rssItemId } = job.data;
+  console.log(`Starting article fetch job for RSS item ID: ${rssItemId}`);
+
+  try {
+    await job.progress(10);
+
+    // 1. Fetch the RSS item
+    const rssItem = await RssItem.findByPk(rssItemId);
+    if (!rssItem) {
+      throw new Error(`RSS item ${rssItemId} not found`);
+    }
+    if (!rssItem.url) {
+      throw new Error(`URL is missing for RSS item ${rssItemId}`);
+    }
+
+    console.log(`- Fetching content from: ${rssItem.url}`);
+    await job.progress(30);
+
+    // 2. Fetch live article content from the web
+    const response = await axios.get(rssItem.url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" }
+    });
+
+    // 3. Extract and clean the HTML
+    const finalHtml = extractAndFormatArticleHtml(response.data);
+    await job.progress(60);
+
+    if (!finalHtml || finalHtml.length < 50) {
+      console.log(`- No valid content extracted from URL, skipping DB update.`);
+      return { articleId: null, rssItemId, status: 'skipped_no_content' };
+    }
+
+    // 4. Check if article already exists and create/update
+    const Article = require('../models/article');
+    let article = await Article.findOne({ where: { rssItemId } });
+
+    if (article) {
+      // Update existing article
+      article.content = finalHtml;
+      // Also update title in case it changed in the RSS feed
+      article.title = rssItem.title; 
+      await article.save();
+      console.log(`- Updated article ${article.id} from RSS item ${rssItemId}`);
+    } else {
+      // Create new article
+      article = await Article.create({
+        title: rssItem.title,
+        content: finalHtml,
+        rssItemId: rssItemId,
+        // authorId can be associated if logic is added later
+      });
+      console.log(`- Created new article ${article.id} from RSS item ${rssItemId}`);
+    }
+
+    await job.progress(100);
+
+    return { articleId: article.id, rssItemId, status: 'processed' };
+
+  } catch (error) {
+    console.error(`- Article fetch failed for RSS item ${rssItemId}: ${error.message}`);
+    // Rethrow the error to allow the job queue to handle retries
+    throw error;
+  }
+};
+
 
 module.exports = {
   handleJsonSync,
   handleSourceDiscovery,
   handleRssSync,
-  syncAllRssSources
+  syncAllRssSources,
+  handleArticleFetch
 };
