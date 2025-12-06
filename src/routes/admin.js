@@ -12,5 +12,6 @@ router.delete('/users/:id', adminCtrl.deleteUser);
 router.put('/users/:id', adminCtrl.updateUser);
 router.get('/stats', adminCtrl.stats);
 router.get('/logs', adminCtrl.logs);
+router.get('/articles', adminCtrl.listArticles);
 
 module.exports = router;
