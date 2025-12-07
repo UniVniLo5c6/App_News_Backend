@@ -21,7 +21,7 @@ const loginValidators = [
 const requestResetValidators = [check('email').isEmail().withMessage('Invalid email')];
 
 const resetValidators = [
-  check('token').isString().withMessage('Token required'),
+  check('otp').isString().withMessage('OTP required'),
   check('newPassword').isLength({ min: 6 }).withMessage('newPassword must be >=6 characters'),
 ];
 
