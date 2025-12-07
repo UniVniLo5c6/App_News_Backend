@@ -45,8 +45,22 @@ exports.list = async (req, res) => {
  * Uses the same logic as `list` but reads topic from `req.params.topic`.
  */
 exports.listByTopic = async (req, res) => {
-  req.query.topic = req.params.topic;
-  return exports.list(req, res);
+  try {
+    const topic = req.params.topic;
+    if (!topic) {
+      return res.status(400).json({ message: 'Topic parameter is required' });
+    }
+    const items = await RssItem.findAll({
+      where: { topic: topic },
+      include: [{ model: RssSource, as: 'source', attributes: ['id', 'name', 'tag'] }],
+      order: [['publishedAt', 'DESC']],
+      limit: 100
+    });
+    return res.json(items);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
 };
 
 /**
