@@ -8,6 +8,7 @@
 const Article = require('../models/article');
 const User = require('../models/user');
 const RssItem = require('../models/rssItem');
+const RssSource = require('../models/rssSource');
 
 /**
  * List all articles.
