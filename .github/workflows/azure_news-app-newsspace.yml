@@ -8,9 +8,6 @@ on:
     branches:
       - azure
   workflow_dispatch:
-concurrency:
-  group: deploy-azure
-  cancel-in-progress: true
 
 jobs:
   build:
@@ -54,9 +51,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_732AEF1E7ABF4B29A26B7042D1565DFA }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_16210F837AD4404D88B1952A709B9D73 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_012B3FD4054A42DCBFF682AB7F8FA143 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9F12A90764254D4C998B9854E216880D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_77473EF8038646A788D95B44A5D0A005 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CE70461772B6495C96EE6868AFB99040 }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
@@ -65,5 +62,4 @@ jobs:
           app-name: 'news-app-newsspace'
           slot-name: 'Production'
           package: .
-
           
