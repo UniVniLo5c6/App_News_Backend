@@ -63,7 +63,7 @@ const handleJsonSync = async (job) => {
           topic: topic
         });
         // Enqueue a job to fetch the article content
-        await articleFetchQueue.add({ rssItemId: newRssItem.id });
+        await articleFetchQueue.add('fetch-article-task', { rssItemId: newRssItem.id });
       }
 
       // Update job progress %
@@ -183,7 +183,7 @@ const handleRssSync = async (job) => {
                     topic: randomTopic
                 });
                 // Enqueue a job to fetch the article content
-                await articleFetchQueue.add({ rssItemId: newRssItem.id });
+                await articleFetchQueue.add('fetch-article-task', { rssItemId: newRssItem.id });
             }
 
             // Update job progress %
@@ -248,7 +248,7 @@ const syncAllRssSources = async (job) => {
               author: item.creator || item.author || 'Unknown',
             });
             // Enqueue a job to fetch the article content
-            await articleFetchQueue.add({ rssItemId: newRssItem.id });
+            await articleFetchQueue.add('fetch-article-task', { rssItemId: newRssItem.id });
             newItemsInSource++;
           }
         }
