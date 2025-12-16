@@ -13,6 +13,7 @@ const BlogReport = require('../models/blogReport');
 const BlogCategory = require('../models/blogCategory');
 const BlogTag = require('../models/blogTag');
 const BlogTagMap = require('../models/blogTagMap');
+const User = require('../models/user');
 const { Op } = require('sequelize');
 
 /**
@@ -28,7 +29,7 @@ exports.list = async (req, res) => {
     const offset = (page - 1) * limit;
     const where = {};
     if (req.query.category) where.categoryId = req.query.category;
-    const items = await Blog.findAll({ where, include: ['author'], order: [['createdAt','DESC']], limit, offset });
+    const items = await Blog.findAll({ where, include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email'] }], order: [['createdAt','DESC']], limit, offset });
     return res.json(items);
   } catch (err) { console.error(err); return res.status(500).json({ message: 'Server error' }); }
 };
